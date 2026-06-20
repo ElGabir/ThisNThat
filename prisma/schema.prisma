@@ -1,0 +1,103 @@
+// Prisma schema for real database implementation
+// To use real database:
+// 1. Install: npm install @prisma/client
+// 2. Add DATABASE_URL to .env.local
+// 3. Run: npx prisma generate && npx prisma migrate dev
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id                    String      @id @default(cuid())
+  email                 String      @unique
+  password              String?
+  trialsUsed            Int         @default(0)
+  isSubscribed          Boolean     @default(false)
+  subscriptionPlan      String?     @default("free")
+  subscriptionId        String?     @unique
+  stripeCustomerId      String?     @unique
+  paypalSubscriptionId  String?     @unique
+  paypesaPhoneNumber    String?
+  subscriptionStartDate DateTime?
+  subscriptionEndDate   DateTime?
+  lastPaymentMethod     String?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+  aiResponses           AIResponse[]
+  payments              Payment[]
+
+  @@index([email])
+  @@index([stripeCustomerId])
+  @@index([subscriptionId])
+}
+
+model AIResponse {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type        String    // 'proofreader', 'writer', 'idea_generator', 'song_maker', 'animation_creator'
+  prompt      String
+  response    String
+  tokens      Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount            Float
+  currency          String    @default("USD")
+  status            String    // 'pending', 'completed', 'failed'
+  paymentMethod     String    // 'stripe', 'paypal', 'paypesa'
+  transactionId     String?   @unique
+  description       String?
+  metadata          String?   // JSON string for additional data
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Subscription {
+  id                String    @id @default(cuid())
+  stripePriceId     String?   @unique
+  paypalPlanId      String?   @unique
+  amount            Float     @default(18.00)
+  currency          String    @default("USD")
+  billingCycle      String    @default("monthly")
+  features          String?   // JSON string of included features
+  description       String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([isActive])
+}
+
+model AuditLog {
+  id        String    @id @default(cuid())
+  userId    String?
+  action    String
+  resource  String
+  details   String?   // JSON string
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+}
